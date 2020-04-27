@@ -1,0 +1,27 @@
+name: dataflower
+version: 0.0.0.0
+synopsis: A Pure-Haskell Timely Dataflow System
+description: See README
+maintainer: Jesse Kempf
+github: doublecrowngaming/dataflower
+
+ghc-options: -Wall -O2
+
+default-extensions:
+- StrictData
+
+dependencies:
+  - base >= 4.7 && < 5
+
+library:
+  source-dirs: src
+
+tests:
+  spec:
+    main: Spec.hs
+    source-dirs:
+      - test
+    dependencies:
+      - dataflower
+      - hspec >=2.0.0
+      - QuickCheck
