@@ -4,10 +4,10 @@ cabal-version: 1.12
 --
 -- see: https://github.com/sol/hpack
 --
--- hash: 96fd41df2e4af2c210cd34dd8b7e59d29cc20d9e204fe47f6954c74f95bb6476
+-- hash: a2a5a09d28827ecd46bbe630fb637e33890a7367743ba3dd44fcc18d950c17f2
 
 name:           dataflower
-version:        0.0.0.0
+version:        0.1.0.0
 synopsis:       A Pure-Haskell Timely Dataflow System
 description:    See README
 homepage:       https://github.com/doublecrowngaming/dataflower#readme
@@ -24,7 +24,10 @@ source-repository head
 library
   exposed-modules:
       Dataflow
+      Test.Dataflow
   other-modules:
+      Dataflow.Primitives
+      Dataflow.Vertices
       Paths_dataflower
   hs-source-dirs:
       src
@@ -32,12 +35,18 @@ library
   ghc-options: -Wall -O2
   build-depends:
       base >=4.7 && <5
+    , mtl
+    , stm
+    , time
+    , transformers
+    , vector
   default-language: Haskell2010
 
 test-suite spec
   type: exitcode-stdio-1.0
   main-is: Spec.hs
   other-modules:
+      DataflowSpec
       Paths_dataflower
   hs-source-dirs:
       test
@@ -48,4 +57,21 @@ test-suite spec
     , base >=4.7 && <5
     , dataflower
     , hspec >=2.0.0
+    , stm
+  default-language: Haskell2010
+
+benchmark performance
+  type: exitcode-stdio-1.0
+  main-is: Main.hs
+  other-modules:
+      Paths_dataflower
+  hs-source-dirs:
+      benchmark
+  default-extensions: StrictData
+  ghc-options: -Wall -O2 -O2
+  build-depends:
+      base >=4.7 && <5
+    , criterion
+    , dataflower
+    , stm
   default-language: Haskell2010
