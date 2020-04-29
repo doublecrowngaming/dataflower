@@ -11,6 +11,8 @@ module Dataflow (
   statelessVertex,
   input,
   output,
+  trace,
+  discard,
   Program,
   compile,
   execute
