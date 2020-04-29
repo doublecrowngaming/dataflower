@@ -17,6 +17,7 @@ library:
   source-dirs: src
   exposed-modules:
     - Dataflow
+    - Dataflow.Operators
     - Test.Dataflow
   dependencies:
     - mtl
