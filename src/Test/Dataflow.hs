@@ -8,7 +8,9 @@ import           Dataflow                    (Dataflow, Edge, compile, execute,
                                               outputTVar)
 import           Prelude
 
-
+-- | Run a dataflow with a list of inputs.
+--
+-- @since 0.1.0.0
 runDataflow :: MonadIO io => (Edge o -> Dataflow (Edge i)) -> [i] -> io [o]
 runDataflow dataflow inputs =
   liftIO $ do

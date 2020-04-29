@@ -39,10 +39,14 @@ newtype VertexID    = VertexID        Int deriving (Eq, Ord, Show)
 newtype Epoch       = Epoch       Natural deriving (Eq, Ord, Hashable, Show)
 
 -- | 'Timestamp's represent instants in the causal timeline.
+--
+-- @since 0.1.0.0
 newtype Timestamp   = Timestamp     Epoch deriving (Eq, Ord, Hashable, Show)
 
 -- | An 'Edge' is a typed reference to a computational vertex that
 -- takes 'a's as its input.
+--
+-- @since 0.1.0.0
 newtype Edge a      = Edge       VertexID
 
 -- | Class of entities that can be incremented by one.
@@ -71,6 +75,8 @@ data DataflowState = DataflowState {
 }
 
 -- | `Dataflow` is the type of all dataflow operations.
+--
+-- @since 0.1.0.0
 newtype Dataflow a = Dataflow { runDataflow :: StateT DataflowState IO a }
   deriving (Functor, Applicative, Monad)
 
@@ -130,21 +136,31 @@ registerFinalizer finalizer =
   Dataflow $ modify $ \s -> s { dfsFinalizers = finalizer : dfsFinalizers s }
 
 -- | Mutable state that holds an `a`.
+--
+-- @since 0.1.0.0
 newtype StateRef a = StateRef (IORef a)
 
 -- | Create a `StateRef` initialized to the provided `a`.
+--
+-- @since 0.1.0.0
 newState :: a -> Dataflow (StateRef a)
 newState a = StateRef <$> (Dataflow $ lift $ newIORef a)
 
 -- | Read the value stored in the `StateRef`.
+--
+-- @since 0.1.0.0
 readState :: StateRef a -> Dataflow a
 readState (StateRef ref) = Dataflow $ lift (readIORef ref)
 
 -- | Overwrite the value stored in the `StateRef`.
+--
+-- @since 0.1.0.0
 writeState :: StateRef a -> a -> Dataflow ()
 writeState (StateRef ref) x = Dataflow $ lift $ atomicWriteIORef ref x
 
 -- | Update the value stored in `StateRef`.
+--
+-- @since 0.1.0.0
 modifyState :: StateRef a -> (a -> a) -> Dataflow ()
 modifyState (StateRef ref) op = Dataflow $ lift $ atomicModifyIORef' ref (\x -> (op x, ()))
 
@@ -159,6 +175,8 @@ input inputs next = do
 
 {-# INLINE send #-}
 -- | Send an `input` item to be worked on to the indicated vertex.
+--
+-- @since 0.1.0.0
 send :: Edge input -> Timestamp -> input -> Dataflow ()
 send e t i = lookupVertex e >>= invoke t i
   where
@@ -166,6 +184,8 @@ send e t i = lookupVertex e >>= invoke t i
     invoke timestamp datum (StatelessVertex callback)     = callback timestamp datum
 
 -- Notify all relevant vertices that no more input is coming for `Timestamp`.
+--
+-- @since 0.1.0.0
 finalize :: Timestamp -> Dataflow ()
 finalize t = do
   finalizers <- Dataflow $ gets dfsFinalizers

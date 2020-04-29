@@ -23,6 +23,8 @@ module Dataflow (
   statefulVertex,
   statelessVertex,
   outputTVar,
+  trace,
+  discard,
   Program,
   compile,
   execute
@@ -36,17 +38,23 @@ import           Dataflow.Vertices
 
 -- | A 'Program' represents a fully-preprocessed 'Dataflow' that may be
 -- executed against inputs.
+--
+-- @since 0.1.0.0
 data Program i = Program {
   programInput :: Edge i,
   programState :: DataflowState
 }
 
 -- | Take a 'Dataflow' which takes 'i's as input and compile it into a 'Program'.
+--
+-- @since 0.1.0.0
 compile :: Dataflow (Edge i) -> IO (Program i)
 compile (Dataflow actions) = uncurry Program <$> runStateT actions initDataflowState
 
 -- | Feed a traversable collection of inputs to a 'Program'. All inputs provided will
 -- have the same 'Timestamp' associated with them.
+--
+-- @since 0.1.0.0
 execute :: Traversable t => t i -> Program i -> IO ()
 execute corpus Program{..} = execDataflow feedInput
   where
