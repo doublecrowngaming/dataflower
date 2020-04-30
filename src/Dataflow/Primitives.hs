@@ -15,8 +15,10 @@ module Dataflow.Primitives (
   Edge,
   Timestamp(..),
   registerVertex,
+  registerFinalizer,
   incrementEpoch,
-  send
+  send,
+  finalize
 ) where
 
 import           Control.Arrow              ((>>>))
@@ -49,6 +51,7 @@ instance Incrementable Epoch where
 
 data DataflowState = DataflowState {
   dfsVertices       :: Vector Dynamic,
+  dfsFinalizers     :: [Timestamp -> Dataflow ()],
   dfsLastVertexID   :: VertexID,
   dfsLastInputEpoch :: Epoch
 }
@@ -59,6 +62,7 @@ newtype Dataflow a = Dataflow { runDataflow :: StateT DataflowState IO a }
 initDataflowState :: DataflowState
 initDataflowState = DataflowState {
   dfsVertices       = empty,
+  dfsFinalizers     = [],
   dfsLastVertexID   = VertexID (-1),
   dfsLastInputEpoch = Epoch 0
 }
@@ -103,6 +107,9 @@ registerVertex vertex =
       dfsLastVertexID = vid
     }
 
+registerFinalizer :: (Timestamp -> Dataflow ()) -> Dataflow ()
+registerFinalizer finalizer =
+  Dataflow $ modify $ \s -> s { dfsFinalizers = finalizer : dfsFinalizers s }
 
 newtype StateRef a = StateRef (IORef a)
 
@@ -125,3 +132,9 @@ send e t i = lookupVertex e >>= invoke t i
   where
     invoke timestamp datum (StatefulVertex sref callback) = callback sref timestamp datum
     invoke timestamp datum (StatelessVertex callback)     = callback timestamp datum
+
+finalize :: Timestamp -> Dataflow ()
+finalize t = do
+  finalizers <- Dataflow $ gets dfsFinalizers
+
+  mapM_ (\p -> p t) finalizers

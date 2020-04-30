@@ -18,16 +18,23 @@ import           Data.Traversable            (Traversable)
 import           Data.Typeable               (Typeable)
 import           Dataflow.Primitives         (Dataflow (..), Edge, StateRef,
                                               Timestamp (..), Vertex (..),
-                                              incrementEpoch, newState,
+                                              finalize, incrementEpoch,
+                                              newState, registerFinalizer,
                                               registerVertex, send)
 import           Prelude
 import           Text.Show.Pretty            (pPrint)
 
 
-statefulVertex :: Typeable i => s -> (StateRef s -> Timestamp -> i -> Dataflow ()) -> Dataflow (Edge i)
-statefulVertex initState callback = do
-  stateRef   <- newState initState
-  registerVertex $ StatefulVertex stateRef callback
+statefulVertex :: Typeable i =>
+  state
+  -> (StateRef state -> Timestamp -> i -> Dataflow ())
+  -> (StateRef state -> Timestamp -> Dataflow ())
+  -> Dataflow (Edge i)
+statefulVertex initState callback finalizer = do
+  stateRef <- newState initState
+
+  registerFinalizer $ finalizer stateRef
+  registerVertex    $ StatefulVertex stateRef callback
 
 statelessVertex :: Typeable i => (Timestamp -> i -> Dataflow ()) -> Dataflow (Edge i)
 statelessVertex callback = registerVertex $ StatelessVertex callback
@@ -43,6 +50,8 @@ input inputs next = do
   timestamp <- Timestamp <$> incrementEpoch
 
   mapM_ (send next timestamp) inputs
+
+  finalize timestamp
 
 {-# NOINLINE output #-}
 output :: Typeable o => (o -> w -> w) -> TVar w -> Dataflow (Edge o)

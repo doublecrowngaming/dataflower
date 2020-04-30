@@ -6,7 +6,7 @@ module Dataflow.Operators (
 import           Data.Dynamic        (Typeable)
 import           Dataflow.Primitives (Dataflow, Edge, StateRef, Timestamp,
                                       Vertex (StatefulVertex), newState,
-                                      registerVertex, send)
+                                      registerFinalizer, registerVertex, send)
 import           Dataflow.Vertices   (statelessVertex)
 import           Prelude             (mapM_, ($), (<$>), (<*>))
 
@@ -20,9 +20,12 @@ join3 :: (Typeable i, Typeable j, Typeable k) =>
   -> (StateRef s -> Timestamp -> i -> Dataflow ())
   -> (StateRef s -> Timestamp -> j -> Dataflow ())
   -> (StateRef s -> Timestamp -> k -> Dataflow ())
+  -> (StateRef s -> Timestamp -> Dataflow ())
   -> Dataflow (Edge i, Edge j, Edge k)
-join3 initState callbackI callbackJ callbackK = do
+join3 initState callbackI callbackJ callbackK finalizer = do
   stateRef <- newState initState
+
+  registerFinalizer (finalizer stateRef)
 
   (,,) <$> registerVertex (StatefulVertex stateRef callbackI)
        <*> registerVertex (StatefulVertex stateRef callbackJ)
