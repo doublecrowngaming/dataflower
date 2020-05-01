@@ -1,5 +1,6 @@
 module Dataflow.Operators (
   fanout,
+  map,
   join3
 ) where
 
@@ -13,6 +14,10 @@ import           Prelude             (mapM_, ($), (<$>), (<*>))
 
 fanout :: Typeable a => [Edge a] -> Dataflow (Edge a)
 fanout nexts = statelessVertex $ \timestamp x -> mapM_ (\next -> send next timestamp x) nexts
+
+
+map :: (Typeable i, Typeable o) => (i -> o) -> Edge o -> Dataflow (Edge i)
+map f next = statelessVertex $ \timestamp x -> send next timestamp (f x)
 
 
 join3 :: (Typeable i, Typeable j, Typeable k) =>
