@@ -19,6 +19,7 @@ module Dataflow (
 ) where
 
 import           Control.Monad              (void)
+import           Control.Monad.IO.Class     (MonadIO (..))
 import           Control.Monad.State.Strict (execStateT, runStateT)
 import           Dataflow.Primitives
 import           Dataflow.Vertices
@@ -29,11 +30,11 @@ data Program i = Program {
   programState :: DataflowState
 }
 
-compile :: Dataflow (Edge i) -> IO (Program i)
-compile (Dataflow actions) = uncurry Program <$> runStateT actions initDataflowState
+compile :: MonadIO io => Dataflow (Edge i) -> io (Program i)
+compile (Dataflow actions) = liftIO $ uncurry Program <$> runStateT actions initDataflowState
 
-execute :: (Edge i -> Dataflow ()) -> Program i -> IO ()
-execute inputVertex Program{..} = execDataflow feedInput
+execute :: MonadIO io => (Edge i -> Dataflow ()) -> Program i -> io ()
+execute inputVertex Program{..} = liftIO $ execDataflow feedInput
   where
     feedInput           = inputVertex programInput
     execDataflow action = void $ execStateT (runDataflow action) programState
