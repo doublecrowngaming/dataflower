@@ -31,6 +31,7 @@ module Dataflow (
 ) where
 
 import           Control.Monad              (void)
+import           Control.Monad.IO.Class     (MonadIO (..))
 import           Control.Monad.State.Strict (execStateT, runStateT)
 import           Data.Traversable           (Traversable)
 import           Dataflow.Primitives
@@ -48,15 +49,15 @@ data Program i = Program {
 -- | Take a 'Dataflow' which takes 'i's as input and compile it into a 'Program'.
 --
 -- @since 0.1.0.0
-compile :: Dataflow (Edge i) -> IO (Program i)
-compile (Dataflow actions) = uncurry Program <$> runStateT actions initDataflowState
+compile :: MonadIO io => Dataflow (Edge i) -> io (Program i)
+compile (Dataflow actions) = liftIO $ uncurry Program <$> runStateT actions initDataflowState
 
 -- | Feed a traversable collection of inputs to a 'Program'. All inputs provided will
 -- have the same 'Timestamp' associated with them.
 --
 -- @since 0.1.0.0
-execute :: Traversable t => t i -> Program i -> IO ()
-execute corpus Program{..} = execDataflow feedInput
+execute :: (MonadIO io, Traversable t) => t i -> Program i -> io ()
+execute corpus Program{..} = liftIO $ execDataflow feedInput
   where
     feedInput           = input corpus programInput
     execDataflow action = void $ execStateT (runDataflow action) programState
