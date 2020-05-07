@@ -44,5 +44,4 @@ benchmarks:
     dependencies:
       - dataflower
       - criterion
-      - stm
     ghc-options: -O2
