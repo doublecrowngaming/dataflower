@@ -24,14 +24,13 @@ module Dataflow.Primitives (
 import           Control.Arrow              ((>>>))
 import           Control.Monad.State.Strict (StateT, gets, modify)
 import           Control.Monad.Trans        (lift)
-import           Data.Dynamic               (Dynamic, Typeable, fromDynamic,
-                                             toDyn)
 import           Data.IORef                 (IORef, atomicModifyIORef',
                                              atomicWriteIORef, newIORef,
                                              readIORef)
 import           Data.Vector                (Vector, empty, snoc, (!))
 import           Numeric.Natural            (Natural)
 import           Prelude
+import           Unsafe.Coerce              (unsafeCoerce)
 
 
 newtype VertexID    = VertexID        Int deriving (Eq, Ord, Show)
@@ -49,8 +48,14 @@ instance Incrementable Epoch where
   inc (Epoch n) = Epoch (n + 1)
 
 
+data Any = forall i. Any i
+
+unAny :: Any -> a
+unAny (Any x) = unsafeCoerce x
+
+
 data DataflowState = DataflowState {
-  dfsVertices       :: Vector Dynamic,
+  dfsVertices       :: Vector Any,
   dfsFinalizers     :: [Timestamp -> Dataflow ()],
   dfsLastVertexID   :: VertexID,
   dfsLastInputEpoch :: Epoch
@@ -84,15 +89,14 @@ data Vertex i = forall s.
   | StatelessVertex
       (Timestamp -> i -> Dataflow ())
 
-lookupVertex :: Typeable i => Edge i -> Dataflow (Vertex i)
-lookupVertex (Edge vid) = retrieveVertex vid >>= ensureTypecast
-  where
-    retrieveVertex (VertexID vindex) = Dataflow (fromDynamic <$> gets (dfsVertices >>> (! vindex)))
+lookupVertex :: Edge i -> Dataflow (Vertex i)
+lookupVertex (Edge (VertexID vindex)) =
+  Dataflow $ do
+    vertices <- gets dfsVertices
 
-    ensureTypecast Nothing  = error "Programming error: Vertex and Edge were of different types"
-    ensureTypecast (Just v) = return v
+    return $ unAny (vertices ! vindex)
 
-registerVertex :: Typeable i => Vertex i -> Dataflow (Edge i)
+registerVertex :: Vertex i -> Dataflow (Edge i)
 registerVertex vertex =
   Dataflow $ do
     vid <- gets (dfsLastVertexID >>> inc)
@@ -103,7 +107,7 @@ registerVertex vertex =
 
   where
     addVertex vtx vid s = s {
-      dfsVertices     = dfsVertices s `snoc` toDyn vtx,
+      dfsVertices     = dfsVertices s `snoc` Any vtx,
       dfsLastVertexID = vid
     }
 
@@ -126,8 +130,8 @@ modifyState :: StateRef a -> (a -> a) -> Dataflow ()
 modifyState (StateRef ref) op = Dataflow $ lift $ atomicModifyIORef' ref (\x -> (op x, ()))
 
 
-{-# NOINLINE send #-}
-send :: Typeable i => Edge i -> Timestamp -> i -> Dataflow ()
+{-# INLINE send #-}
+send :: Edge i -> Timestamp -> i -> Dataflow ()
 send e t i = lookupVertex e >>= invoke t i
   where
     invoke timestamp datum (StatefulVertex sref callback) = callback sref timestamp datum
