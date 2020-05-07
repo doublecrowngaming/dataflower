@@ -3,7 +3,6 @@
 module DataflowSpec (spec) where
 
 import           Control.Monad   ((>=>))
-import           Data.Typeable   (Typeable)
 import           Dataflow
 import           Prelude         hiding (map)
 
@@ -27,7 +26,7 @@ spec = do
       \(numbers :: [Int]) ->
         runDataflow (storeAndForward >=> storeAndForward >=> storeAndForward) numbers `shouldReturn` numbers
 
-storeAndForward :: (Show i, Typeable i) => Edge i -> Dataflow (Edge i)
+storeAndForward :: Edge i -> Dataflow (Edge i)
 storeAndForward next = statefulVertex [] store forward
   where
     store sref _ i = modifyState sref (i :)

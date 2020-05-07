@@ -31,7 +31,6 @@ module Dataflow (
 import           Control.Monad              (void)
 import           Control.Monad.State.Strict (execStateT, runStateT)
 import           Data.Traversable           (Traversable)
-import           Data.Typeable              (Typeable)
 import           Dataflow.Primitives
 import           Dataflow.Vertices
 
@@ -48,7 +47,7 @@ compile (Dataflow actions) = uncurry Program <$> runStateT actions initDataflowS
 
 -- | Feed a traversable collection of inputs to a 'Program'. All inputs provided will
 -- have the same 'Timestamp' associated with them.
-execute :: (Traversable t, Typeable i) => t i -> Program i -> IO ()
+execute :: Traversable t => t i -> Program i -> IO ()
 execute corpus Program{..} = execDataflow feedInput
   where
     feedInput           = input corpus programInput
