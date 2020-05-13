@@ -1,5 +1,5 @@
 name: dataflower
-version: 0.1.2.0
+version: 0.1.3.0
 synopsis: A Pure-Haskell Timely Dataflow System
 description: See README
 maintainer: Jesse Kempf
@@ -17,6 +17,7 @@ library:
   source-dirs: src
   exposed-modules:
     - Dataflow
+    - Dataflow.Operators
     - Test.Dataflow
   dependencies:
     - hashable
