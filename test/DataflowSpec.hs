@@ -8,7 +8,7 @@ import           Prelude         hiding (map)
 
 import           Test.Dataflow   (runDataflow)
 import           Test.Hspec
-import           Test.QuickCheck
+import           Test.QuickCheck hiding (discard)
 
 
 spec :: Spec
@@ -25,6 +25,10 @@ spec = do
     it "finalizes vertices in the correct order" $ property $
       \(numbers :: [Int]) ->
         runDataflow (storeAndForward >=> storeAndForward >=> storeAndForward) numbers `shouldReturn` numbers
+
+  describe "discard" $
+    it "discards all input" $ property $
+      \(numbers :: [Int]) -> runDataflow (const discard) numbers `shouldReturn` ([] :: [Int])
 
 storeAndForward :: Edge i -> Dataflow (Edge i)
 storeAndForward next = statefulVertex [] store forward
