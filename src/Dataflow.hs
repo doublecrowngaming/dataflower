@@ -32,7 +32,7 @@ module Dataflow (
 
 import           Control.Monad              (void)
 import           Control.Monad.IO.Class     (MonadIO (..))
-import           Control.Monad.State.Strict (execStateT, runStateT)
+import           Control.Monad.State.Strict (evalStateT, execStateT, runStateT)
 import           Data.Traversable           (Traversable)
 import           Dataflow.Primitives
 import           Dataflow.Vertices
@@ -56,8 +56,10 @@ compile (Dataflow actions) = liftIO $ uncurry Program <$> runStateT actions init
 -- have the same 'Timestamp' associated with them.
 --
 -- @since 0.1.0.0
-execute :: (MonadIO io, Traversable t) => t i -> Program i -> io ()
-execute corpus Program{..} = liftIO $ execDataflow feedInput
-  where
-    feedInput           = input corpus programInput
-    execDataflow action = void $ execStateT (runDataflow action) programState
+execute :: (MonadIO io, Traversable t) => t i -> Program i -> io (Program i)
+execute corpus Program{..} = liftIO $ do
+  newProgramState <- evalStateT (runDataflow duplicateDataflowState) programState
+
+  void $ execStateT (runDataflow $ input corpus programInput) newProgramState
+
+  return $ Program programInput newProgramState

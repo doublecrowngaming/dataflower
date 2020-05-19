@@ -3,6 +3,7 @@ module Test.Dataflow (
 ) where
 
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO)
+import           Control.Monad               (void)
 import           Control.Monad.IO.Class      (MonadIO (..))
 import           Dataflow                    (Dataflow, Edge, compile, execute,
                                               outputTVar)
@@ -17,6 +18,6 @@ runDataflow dataflow inputs =
     out     <- newTVarIO []
     program <- compile (dataflow =<< outputTVar (:) out)
 
-    execute inputs program
+    void $ execute inputs program
 
     reverse <$> readTVarIO out
