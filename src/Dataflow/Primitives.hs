@@ -1,12 +1,14 @@
 {-# LANGUAGE ExistentialQuantification  #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
+{-# LANGUAGE RecordWildCards            #-}
 
 module Dataflow.Primitives (
   Dataflow(..),
   DataflowState,
   Vertex(..),
   initDataflowState,
+  duplicateDataflowState,
   StateRef,
   newState,
   readState,
@@ -23,7 +25,9 @@ module Dataflow.Primitives (
 ) where
 
 import           Control.Arrow              ((>>>))
-import           Control.Monad.State.Strict (StateT, gets, modify)
+import           Control.Monad              (forM, (>=>))
+import           Control.Monad.IO.Class     (liftIO)
+import           Control.Monad.State.Strict (StateT, get, gets, modify)
 import           Control.Monad.Trans        (lift)
 import           Data.Hashable              (Hashable (..))
 import           Data.IORef                 (IORef, atomicModifyIORef',
@@ -36,6 +40,7 @@ import           Unsafe.Coerce              (unsafeCoerce)
 
 
 newtype VertexID    = VertexID        Int deriving (Eq, Ord, Show)
+newtype StateID     = StateID         Int deriving (Eq, Ord, Show)
 newtype Epoch       = Epoch       Natural deriving (Eq, Ord, Hashable, Show)
 
 -- | 'Timestamp's represent instants in the causal timeline.
@@ -56,6 +61,9 @@ class Incrementable a where
 instance Incrementable VertexID where
   inc (VertexID n) = VertexID (n + 1)
 
+instance Incrementable StateID where
+  inc (StateID n) = StateID (n + 1)
+
 instance Incrementable Epoch where
   inc (Epoch n) = Epoch (n + 1)
 
@@ -69,8 +77,10 @@ unEraseType (EraseType x) = unsafeCoerce x
 
 data DataflowState = DataflowState {
   dfsVertices       :: Vector ErasedType,
+  dfsStates         :: Vector (IORef ErasedType),
   dfsFinalizers     :: [Timestamp -> Dataflow ()],
   dfsLastVertexID   :: VertexID,
+  dfsLastStateID    :: StateID,
   dfsLastInputEpoch :: Epoch
 }
 
@@ -83,10 +93,23 @@ newtype Dataflow a = Dataflow { runDataflow :: StateT DataflowState IO a }
 initDataflowState :: DataflowState
 initDataflowState = DataflowState {
   dfsVertices       = empty,
+  dfsStates         = empty,
   dfsFinalizers     = [],
   dfsLastVertexID   = VertexID (-1),
+  dfsLastStateID    = StateID (-1),
   dfsLastInputEpoch = Epoch 0
 }
+
+duplicateDataflowState :: Dataflow (DataflowState)
+duplicateDataflowState = Dataflow $ do
+  DataflowState{..} <- get
+
+  newStates <- liftIO $ forM dfsStates dupIORef
+
+  return $ DataflowState { dfsStates = newStates, .. }
+
+  where
+    dupIORef = readIORef >=> newIORef
 
 -- | Get the next input Epoch.
 incrementEpoch :: Dataflow Epoch
@@ -138,31 +161,57 @@ registerFinalizer finalizer =
 -- | Mutable state that holds an `a`.
 --
 -- @since 0.1.0.0
-newtype StateRef a = StateRef (IORef a)
+newtype StateRef a = StateRef StateID
 
 -- | Create a `StateRef` initialized to the provided `a`.
 --
 -- @since 0.1.0.0
 newState :: a -> Dataflow (StateRef a)
-newState a = StateRef <$> (Dataflow $ lift $ newIORef a)
+newState a =
+  Dataflow $ do
+    sid   <- gets (dfsLastStateID >>> inc)
+    ioref <- lift $ newIORef (EraseType a)
+
+    modify $ addState ioref sid
+
+    return (StateRef sid)
+
+  where
+    addState ref sid s = s {
+      dfsStates      = dfsStates s `snoc` ref,
+      dfsLastStateID = sid
+    }
+
+lookupStateRef :: StateRef s -> Dataflow (IORef ErasedType)
+lookupStateRef (StateRef (StateID sindex)) =
+  Dataflow $ do
+    states <- gets dfsStates
+
+    return (states ! sindex)
 
 -- | Read the value stored in the `StateRef`.
 --
 -- @since 0.1.0.0
 readState :: StateRef a -> Dataflow a
-readState (StateRef ref) = Dataflow $ lift (readIORef ref)
+readState sref = do
+  ioref <- lookupStateRef sref
+  Dataflow $ lift $ (unEraseType <$> readIORef ioref)
 
 -- | Overwrite the value stored in the `StateRef`.
 --
 -- @since 0.1.0.0
 writeState :: StateRef a -> a -> Dataflow ()
-writeState (StateRef ref) x = Dataflow $ lift $ atomicWriteIORef ref x
+writeState sref x = do
+  ioref <- lookupStateRef sref
+  Dataflow $ lift $ atomicWriteIORef ioref (EraseType x)
 
 -- | Update the value stored in `StateRef`.
 --
 -- @since 0.1.0.0
 modifyState :: StateRef a -> (a -> a) -> Dataflow ()
-modifyState (StateRef ref) op = Dataflow $ lift $ atomicModifyIORef' ref (\x -> (op x, ()))
+modifyState sref op = do
+  ioref <- lookupStateRef sref
+  Dataflow $ lift $ atomicModifyIORef' ioref (\x -> (EraseType $ op (unEraseType x), ()))
 
 {-# INLINEABLE input #-}
 input :: Traversable t => t i -> Edge i -> Dataflow ()

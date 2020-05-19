@@ -2,13 +2,15 @@
 
 module DataflowSpec (spec) where
 
-import           Control.Monad   ((>=>))
+import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO)
+import           Control.Monad               (void, (>=>))
 import           Dataflow
-import           Prelude         hiding (map)
+import           Prelude
 
-import           Test.Dataflow   (runDataflow)
+import           Test.Dataflow               (runDataflow)
 import           Test.Hspec
-import           Test.QuickCheck hiding (discard)
+import           Test.QuickCheck             hiding (discard)
+import           Test.QuickCheck.Modifiers   (NonEmptyList (..))
 
 
 spec :: Spec
@@ -17,6 +19,24 @@ spec = do
     let passthrough next = statelessVertex $ \t x -> send next t x
 
     \(numbers :: [Integer]) -> runDataflow passthrough numbers `shouldReturn` numbers
+
+  describe "execute" $ do
+    it "isolates the state of runs from each other" $ property $ \(NonEmpty numbers) -> do
+      out     <- newTVarIO []
+      program <- compile (integrate =<< outputTVar (:) out)
+
+      void $ execute numbers program
+      void $ execute numbers program
+
+      (reverse <$> readTVarIO out) `shouldReturn` (scanl1 (+) numbers ++ scanl1 (+) numbers)
+
+    it "bundles all the execution state into a Program" $ property $ \(NonEmpty numbers) -> do
+      out     <- newTVarIO 0
+      program <- compile (integrate =<< outputTVar const out)
+
+      void $ execute numbers program >>= execute numbers >>= execute numbers
+
+      readTVarIO out `shouldReturn` (3 * sum numbers)
 
   describe "finalize" $ do
     it "finalizes vertices" $ property $
@@ -37,3 +57,13 @@ storeAndForward next = statefulVertex [] store forward
     forward sref t = do
       mapM_ (send next t) =<< reverse <$> readState sref
       writeState sref []
+
+integrate :: Edge Int -> Dataflow (Edge Int)
+integrate next = statefulVertex 0 recv finalize
+  where
+    recv s t i   = do
+      modifyState s (+ i)
+
+      send next t =<< readState s
+
+    finalize _ _ = return ()
