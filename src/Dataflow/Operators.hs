@@ -15,7 +15,10 @@ module Dataflow.Operators (
   fanout,
   map,
   join2,
-  join3
+  join3,
+  join4,
+  join5,
+  join6
 ) where
 
 import           Dataflow.Primitives (Dataflow, Edge, StateRef, Timestamp,
@@ -73,3 +76,72 @@ join3 initState callbackI callbackJ callbackK finalizer = do
   (,,) <$> registerVertex (StatefulVertex stateRef callbackI)
        <*> registerVertex (StatefulVertex stateRef callbackJ)
        <*> registerVertex (StatefulVertex stateRef callbackK)
+
+-- | Construct a stateful vertex with four input edges.
+--
+-- @since 0.2.1.0
+join4 ::
+  state
+  -> (StateRef state -> Timestamp -> i1 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i2 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i3 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i4 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> Dataflow ())
+  -> Dataflow (Edge i1, Edge i2, Edge i3, Edge i4)
+join4 initState callback1 callback2 callback3 callback4 finalizer = do
+  stateRef <- newState initState
+
+  registerFinalizer $ finalizer stateRef
+
+  (,,,) <$> registerVertex (StatefulVertex stateRef callback1)
+        <*> registerVertex (StatefulVertex stateRef callback2)
+        <*> registerVertex (StatefulVertex stateRef callback3)
+        <*> registerVertex (StatefulVertex stateRef callback4)
+
+-- | Construct a stateful vertex with five input edges.
+--
+-- @since 0.2.1.0
+join5 ::
+  state
+  -> (StateRef state -> Timestamp -> i1 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i2 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i3 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i4 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i5 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> Dataflow ())
+  -> Dataflow (Edge i1, Edge i2, Edge i3, Edge i4, Edge i5)
+join5 initState callback1 callback2 callback3 callback4 callback5 finalizer = do
+  stateRef <- newState initState
+
+  registerFinalizer $ finalizer stateRef
+
+  (,,,,) <$> registerVertex (StatefulVertex stateRef callback1)
+         <*> registerVertex (StatefulVertex stateRef callback2)
+         <*> registerVertex (StatefulVertex stateRef callback3)
+         <*> registerVertex (StatefulVertex stateRef callback4)
+         <*> registerVertex (StatefulVertex stateRef callback5)
+
+-- | Construct a stateful vertex with six input edges.
+--
+-- @since 0.2.1.0
+join6 ::
+  state
+  -> (StateRef state -> Timestamp -> i1 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i2 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i3 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i4 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i5 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> i6 -> Dataflow ())
+  -> (StateRef state -> Timestamp -> Dataflow ())
+  -> Dataflow (Edge i1, Edge i2, Edge i3, Edge i4, Edge i5, Edge i6)
+join6 initState callback1 callback2 callback3 callback4 callback5 callback6 finalizer = do
+  stateRef <- newState initState
+
+  registerFinalizer $ finalizer stateRef
+
+  (,,,,,) <$> registerVertex (StatefulVertex stateRef callback1)
+          <*> registerVertex (StatefulVertex stateRef callback2)
+          <*> registerVertex (StatefulVertex stateRef callback3)
+          <*> registerVertex (StatefulVertex stateRef callback4)
+          <*> registerVertex (StatefulVertex stateRef callback5)
+          <*> registerVertex (StatefulVertex stateRef callback6)
