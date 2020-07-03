@@ -1,5 +1,5 @@
 name: dataflower
-version: 0.2.1.0
+version: 0.3.0.0
 synopsis: A Pure-Haskell Timely Dataflow System
 description: See README
 maintainer: Jesse Kempf
@@ -12,6 +12,9 @@ default-extensions:
 
 dependencies:
   - base >= 4.7 && < 5
+  - bytestring
+  - store
+  - vector
 
 library:
   source-dirs: src
@@ -26,7 +29,6 @@ library:
     - stm
     - time
     - transformers
-    - vector
 
 tests:
   spec:

@@ -13,6 +13,7 @@ module Dataflow.Vertices (
 import           Control.Concurrent.STM.TVar (TVar, modifyTVar')
 import           Control.Monad.STM           (atomically)
 import           Control.Monad.Trans.Class   (lift)
+import           Data.Store                  (Store)
 import           Dataflow.Primitives         (Dataflow (..), Edge, StateRef,
                                               Timestamp (..), Vertex (..),
                                               newState, registerFinalizer,
@@ -30,8 +31,8 @@ import           Text.Show.Pretty            (pPrint)
 -- must be capable of accepting data for multiple timestamps simultaneously.
 --
 -- @since 0.1.0.0
-statefulVertex ::
-  state -- ^ The initial state value.
+statefulVertex :: Store state
+  => state -- ^ The initial state value.
   -> (StateRef state -> Timestamp -> i -> Dataflow ()) -- ^ The input handler.
   -> (StateRef state -> Timestamp -> Dataflow ()) -- ^ The finalizer.
   -> Dataflow (Edge i)

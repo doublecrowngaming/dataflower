@@ -21,6 +21,7 @@ module Dataflow.Operators (
   join6
 ) where
 
+import           Data.Store          (Store)
 import           Dataflow.Primitives (Dataflow, Edge, StateRef, Timestamp,
                                       Vertex (StatefulVertex), newState,
                                       registerFinalizer, registerVertex, send)
@@ -44,8 +45,8 @@ map f next = statelessVertex $ \timestamp x -> send next timestamp (f x)
 -- | Construct a stateful vertex with two input edges.
 --
 -- @since 0.1.3.0
-join2 ::
-  state
+join2 :: Store state
+  =>  state
   -> (StateRef state -> Timestamp -> i -> Dataflow ())
   -> (StateRef state -> Timestamp -> j -> Dataflow ())
   -> (StateRef state -> Timestamp -> Dataflow ())
@@ -61,8 +62,8 @@ join2 initState callbackI callbackJ finalizer = do
 -- | Construct a stateful vertex with three input edges.
 --
 -- @since 0.1.3.0
-join3 ::
-  state
+join3 :: Store state
+  => state
   -> (StateRef state -> Timestamp -> i -> Dataflow ())
   -> (StateRef state -> Timestamp -> j -> Dataflow ())
   -> (StateRef state -> Timestamp -> k -> Dataflow ())
@@ -80,8 +81,8 @@ join3 initState callbackI callbackJ callbackK finalizer = do
 -- | Construct a stateful vertex with four input edges.
 --
 -- @since 0.2.1.0
-join4 ::
-  state
+join4 :: Store state
+  => state
   -> (StateRef state -> Timestamp -> i1 -> Dataflow ())
   -> (StateRef state -> Timestamp -> i2 -> Dataflow ())
   -> (StateRef state -> Timestamp -> i3 -> Dataflow ())
@@ -101,8 +102,8 @@ join4 initState callback1 callback2 callback3 callback4 finalizer = do
 -- | Construct a stateful vertex with five input edges.
 --
 -- @since 0.2.1.0
-join5 ::
-  state
+join5 :: Store state
+  => state
   -> (StateRef state -> Timestamp -> i1 -> Dataflow ())
   -> (StateRef state -> Timestamp -> i2 -> Dataflow ())
   -> (StateRef state -> Timestamp -> i3 -> Dataflow ())
@@ -124,8 +125,8 @@ join5 initState callback1 callback2 callback3 callback4 callback5 finalizer = do
 -- | Construct a stateful vertex with six input edges.
 --
 -- @since 0.2.1.0
-join6 ::
-  state
+join6 :: Store state
+  => state
   -> (StateRef state -> Timestamp -> i1 -> Dataflow ())
   -> (StateRef state -> Timestamp -> i2 -> Dataflow ())
   -> (StateRef state -> Timestamp -> i3 -> Dataflow ())

@@ -2,6 +2,8 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE ScopedTypeVariables        #-}
+{-# LANGUAGE TypeApplications           #-}
 
 module Dataflow.Primitives (
   Dataflow(..),
@@ -9,6 +11,8 @@ module Dataflow.Primitives (
   Vertex(..),
   initDataflowState,
   duplicateDataflowState,
+  encodeStates,
+  decodeStates,
   StateRef,
   newState,
   readState,
@@ -27,15 +31,17 @@ module Dataflow.Primitives (
 import           Control.Arrow              ((>>>))
 import           Control.Monad              (forM, (>=>))
 import           Control.Monad.IO.Class     (liftIO)
-import           Control.Monad.State.Strict (StateT, get, gets, modify)
+import           Control.Monad.State.Strict (StateT, gets, modify)
 import           Control.Monad.Trans        (lift)
+import           Data.ByteString            (ByteString)
 import           Data.Hashable              (Hashable (..))
 import           Data.IORef                 (IORef, atomicModifyIORef',
                                              atomicWriteIORef, newIORef,
                                              readIORef)
-import           Data.Vector                (Vector, empty, snoc, (!))
+import           Data.Store                 (Store, decodeEx, encode)
+import           Data.Vector                (Vector, empty, snoc, zipWith, (!))
 import           Numeric.Natural            (Natural)
-import           Prelude
+import           Prelude                    hiding (zipWith)
 import           Unsafe.Coerce              (unsafeCoerce)
 
 
@@ -78,6 +84,8 @@ unEraseType (EraseType x) = unsafeCoerce x
 data DataflowState = DataflowState {
   dfsVertices       :: Vector ErasedType,
   dfsStates         :: Vector (IORef ErasedType),
+  dfsStateEncoders  :: Vector (ErasedType -> ByteString),
+  dfsStateDecoders  :: Vector (ByteString -> ErasedType),
   dfsFinalizers     :: [Timestamp -> Dataflow ()],
   dfsLastVertexID   :: VertexID,
   dfsLastStateID    :: StateID,
@@ -94,22 +102,37 @@ initDataflowState :: DataflowState
 initDataflowState = DataflowState {
   dfsVertices       = empty,
   dfsStates         = empty,
+  dfsStateEncoders  = empty,
+  dfsStateDecoders  = empty,
   dfsFinalizers     = [],
   dfsLastVertexID   = VertexID (-1),
   dfsLastStateID    = StateID (-1),
   dfsLastInputEpoch = Epoch 0
 }
 
-duplicateDataflowState :: Dataflow (DataflowState)
-duplicateDataflowState = Dataflow $ do
-  DataflowState{..} <- get
-
+duplicateDataflowState :: DataflowState -> IO DataflowState
+duplicateDataflowState DataflowState{..} = do
   newStates <- liftIO $ forM dfsStates dupIORef
 
   return $ DataflowState { dfsStates = newStates, .. }
 
   where
     dupIORef = readIORef >=> newIORef
+
+encodeStates :: DataflowState -> IO (Vector ByteString)
+encodeStates DataflowState{..} =
+  sequence $ zipWith (\ref enc -> enc <$> readIORef ref) dfsStates dfsStateEncoders
+
+decodeStates :: DataflowState -> Vector ByteString -> IO DataflowState
+decodeStates initState encodedStates = do
+  DataflowState{..} <- duplicateDataflowState initState
+
+  let values = zipWith ($) dfsStateDecoders encodedStates
+
+  liftIO $ sequence_ $ zipWith atomicWriteIORef dfsStates values
+
+  return DataflowState{..}
+
 
 -- | Get the next input Epoch.
 incrementEpoch :: Dataflow Epoch
@@ -166,7 +189,7 @@ newtype StateRef a = StateRef StateID
 -- | Create a `StateRef` initialized to the provided `a`.
 --
 -- @since 0.1.0.0
-newState :: a -> Dataflow (StateRef a)
+newState :: forall a. Store a => a -> Dataflow (StateRef a)
 newState a =
   Dataflow $ do
     sid   <- gets (dfsLastStateID >>> inc)
@@ -178,9 +201,14 @@ newState a =
 
   where
     addState ref sid s = s {
-      dfsStates      = dfsStates s `snoc` ref,
-      dfsLastStateID = sid
+      dfsStates        = dfsStates s `snoc` ref,
+      dfsStateEncoders = dfsStateEncoders s `snoc` encodeState,
+      dfsStateDecoders = dfsStateDecoders s `snoc` decodeState,
+      dfsLastStateID   = sid
     }
+
+    encodeState = encode . unEraseType @a
+    decodeState = EraseType . decodeEx @a
 
 lookupStateRef :: StateRef s -> Dataflow (IORef ErasedType)
 lookupStateRef (StateRef (StateID sindex)) =
