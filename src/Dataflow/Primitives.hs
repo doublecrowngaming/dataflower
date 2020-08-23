@@ -33,7 +33,7 @@ import           Data.Hashable              (Hashable (..))
 import           Data.IORef                 (IORef, atomicModifyIORef',
                                              atomicWriteIORef, newIORef,
                                              readIORef)
-import           Data.Vector                (Vector, empty, snoc, (!))
+import           Data.Vector                (Vector, empty, snoc, unsafeIndex)
 import           Numeric.Natural            (Natural)
 import           Prelude
 import           Unsafe.Coerce              (unsafeCoerce)
@@ -135,7 +135,7 @@ lookupVertex (Edge (VertexID vindex)) =
   Dataflow $ do
     vertices <- gets dfsVertices
 
-    return $ unEraseType (vertices ! vindex)
+    return $ unEraseType (vertices `unsafeIndex` vindex)
 
 -- | Store a provided vertex and obtain an 'Edge' that refers to it.
 registerVertex :: Vertex i -> Dataflow (Edge i)
@@ -187,7 +187,7 @@ lookupStateRef (StateRef (StateID sindex)) =
   Dataflow $ do
     states <- gets dfsStates
 
-    return (states ! sindex)
+    return (states `unsafeIndex` sindex)
 
 -- | Read the value stored in the `StateRef`.
 --
