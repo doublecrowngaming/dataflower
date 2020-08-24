@@ -33,6 +33,7 @@ import           Data.Hashable              (Hashable (..))
 import           Data.IORef                 (IORef, modifyIORef', newIORef,
                                              readIORef, writeIORef)
 import           Data.Vector                (Vector, empty, snoc, unsafeIndex)
+import           GHC.Exts                   (Any)
 import           Numeric.Natural            (Natural)
 import           Prelude
 import           Unsafe.Coerce              (unsafeCoerce)
@@ -67,16 +68,9 @@ instance Incrementable Epoch where
   inc (Epoch n) = Epoch (n + 1)
 
 
--- | 'ErasedType' erases the type it wraps.
-data ErasedType = forall i. EraseType i
-
-unEraseType :: ErasedType -> a
-unEraseType (EraseType x) = unsafeCoerce x
-
-
 data DataflowState = DataflowState {
-  dfsVertices       :: Vector ErasedType,
-  dfsStates         :: Vector (IORef ErasedType),
+  dfsVertices       :: Vector Any,
+  dfsStates         :: Vector (IORef Any),
   dfsFinalizers     :: [Timestamp -> Dataflow ()],
   dfsLastVertexID   :: VertexID,
   dfsLastStateID    :: StateID,
@@ -134,7 +128,7 @@ lookupVertex (Edge (VertexID vindex)) =
   Dataflow $ do
     vertices <- gets dfsVertices
 
-    return $ unEraseType (vertices `unsafeIndex` vindex)
+    return $ unsafeCoerce (vertices `unsafeIndex` vindex)
 
 -- | Store a provided vertex and obtain an 'Edge' that refers to it.
 registerVertex :: Vertex i -> Dataflow (Edge i)
@@ -148,7 +142,7 @@ registerVertex vertex =
 
   where
     addVertex vtx vid s = s {
-      dfsVertices     = dfsVertices s `snoc` EraseType vtx,
+      dfsVertices     = dfsVertices s `snoc` unsafeCoerce vtx,
       dfsLastVertexID = vid
     }
 
@@ -169,7 +163,7 @@ newState :: a -> Dataflow (StateRef a)
 newState a =
   Dataflow $ do
     sid   <- gets (dfsLastStateID >>> inc)
-    ioref <- lift $ newIORef (EraseType a)
+    ioref <- lift $ newIORef (unsafeCoerce a)
 
     modify $ addState ioref sid
 
@@ -181,7 +175,7 @@ newState a =
       dfsLastStateID = sid
     }
 
-lookupStateRef :: StateRef s -> Dataflow (IORef ErasedType)
+lookupStateRef :: StateRef s -> Dataflow (IORef Any)
 lookupStateRef (StateRef (StateID sindex)) =
   Dataflow $ do
     states <- gets dfsStates
@@ -194,7 +188,7 @@ lookupStateRef (StateRef (StateID sindex)) =
 readState :: StateRef a -> Dataflow a
 readState sref = do
   ioref <- lookupStateRef sref
-  Dataflow $ lift $ (unEraseType <$> readIORef ioref)
+  Dataflow $ lift (unsafeCoerce <$> readIORef ioref)
 
 -- | Overwrite the value stored in the `StateRef`.
 --
@@ -202,7 +196,7 @@ readState sref = do
 writeState :: StateRef a -> a -> Dataflow ()
 writeState sref x = do
   ioref <- lookupStateRef sref
-  Dataflow $ lift $ writeIORef ioref (EraseType x)
+  Dataflow $ lift $ writeIORef ioref (unsafeCoerce x)
 
 -- | Update the value stored in `StateRef`.
 --
@@ -210,7 +204,7 @@ writeState sref x = do
 modifyState :: StateRef a -> (a -> a) -> Dataflow ()
 modifyState sref op = do
   ioref <- lookupStateRef sref
-  Dataflow $ lift $ modifyIORef' ioref (EraseType . op . unEraseType)
+  Dataflow $ lift $ modifyIORef' ioref (unsafeCoerce . op . unsafeCoerce)
 
 {-# INLINEABLE input #-}
 input :: Traversable t => t i -> Edge i -> Dataflow ()
