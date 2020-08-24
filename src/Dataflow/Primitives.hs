@@ -30,9 +30,8 @@ import           Control.Monad.IO.Class     (liftIO)
 import           Control.Monad.State.Strict (StateT, get, gets, modify)
 import           Control.Monad.Trans        (lift)
 import           Data.Hashable              (Hashable (..))
-import           Data.IORef                 (IORef, atomicModifyIORef',
-                                             atomicWriteIORef, newIORef,
-                                             readIORef)
+import           Data.IORef                 (IORef, modifyIORef', newIORef,
+                                             readIORef, writeIORef)
 import           Data.Vector                (Vector, empty, snoc, unsafeIndex)
 import           Numeric.Natural            (Natural)
 import           Prelude
@@ -203,7 +202,7 @@ readState sref = do
 writeState :: StateRef a -> a -> Dataflow ()
 writeState sref x = do
   ioref <- lookupStateRef sref
-  Dataflow $ lift $ atomicWriteIORef ioref (EraseType x)
+  Dataflow $ lift $ writeIORef ioref (EraseType x)
 
 -- | Update the value stored in `StateRef`.
 --
@@ -211,7 +210,7 @@ writeState sref x = do
 modifyState :: StateRef a -> (a -> a) -> Dataflow ()
 modifyState sref op = do
   ioref <- lookupStateRef sref
-  Dataflow $ lift $ atomicModifyIORef' ioref (\x -> (EraseType $ op (unEraseType x), ()))
+  Dataflow $ lift $ modifyIORef' ioref (EraseType . op . unEraseType)
 
 {-# INLINEABLE input #-}
 input :: Traversable t => t i -> Edge i -> Dataflow ()
