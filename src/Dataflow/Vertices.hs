@@ -1,4 +1,3 @@
-{-# LANGUAGE ExplicitForAll      #-}
 {-# LANGUAGE OverloadedLists     #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 

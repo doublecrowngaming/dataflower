@@ -93,7 +93,7 @@ initDataflowState = DataflowState {
   dfsLastInputEpoch = Epoch 0
 }
 
-duplicateDataflowState :: Dataflow (DataflowState)
+duplicateDataflowState :: Dataflow DataflowState
 duplicateDataflowState = Dataflow $ do
   DataflowState{..} <- get
 

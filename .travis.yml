@@ -20,11 +20,11 @@ before_install:
 - mkdir -p ~/.local/bin
 - export PATH=$HOME/.local/bin:$PATH
 - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-
+- stack $ARGS --no-terminal --install-ghc install hlint
 script:
   - stack $ARGS --no-terminal --install-ghc test --haddock
   - stack $ARGS --no-terminal --install-ghc bench
-
+  - stack $ARGS --no-terminal exec hlint .
 cache:
   directories:
   - $HOME/.stack
