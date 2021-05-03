@@ -1,3 +1,4 @@
+{-# LANGUAGE RecursiveDo         #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 
 module DataflowSpec (spec) where
@@ -5,6 +6,7 @@ module DataflowSpec (spec) where
 import           Control.Concurrent.STM.TVar (newTVarIO, readTVarIO)
 import           Control.Monad               (void, (>=>))
 import           Dataflow
+import qualified Dataflow.Operators          as DF (fanout, map)
 import           Prelude
 
 import           Test.Dataflow               (runDataflow)
@@ -38,6 +40,14 @@ spec = do
 
       readTVarIO out `shouldReturn` (3 * sum numbers)
 
+    it "supports recursive-do correctly" $ property $ \(NonEmpty numbers) -> do
+      out     <- newTVarIO []
+      program <- compile (freeform =<< outputTVar (:) out)
+
+      void $ execute numbers program
+
+      (reverse <$> readTVarIO out) `shouldReturn` map (\x -> -2 * x) numbers
+
   describe "finalize" $ do
     it "finalizes vertices" $ property $
       \(numbers :: [Int]) -> runDataflow storeAndForward numbers `shouldReturn` numbers
@@ -67,3 +77,10 @@ integrate next = statefulVertex 0 recv finalize
       send next t =<< readState s
 
     finalize _ _ = return ()
+
+freeform :: Edge Int -> Dataflow (Edge Int)
+freeform next = mdo
+  negate <- DF.map (\x -> -x) double
+  double <- DF.map (* 2) next
+
+  DF.fanout [negate]
