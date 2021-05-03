@@ -36,8 +36,8 @@ spec = do
                           (\sref t -> send next t =<< readState sref)
           numbers'     = Prelude.map Identity numbers
 
-      runDataflow (\o -> fst <$> numJoin o) numbers  `shouldReturn` [sum numbers]
-      runDataflow (\o -> snd <$> numJoin o) numbers' `shouldReturn` [sum numbers]
+      runDataflow (fmap fst . numJoin) numbers  `shouldReturn` [sum numbers]
+      runDataflow (fmap snd . numJoin) numbers' `shouldReturn` [sum numbers]
 
   describe "join3" $
     it "accepts three different kinds of input" $ property $ \numbers -> do
@@ -52,6 +52,6 @@ spec = do
           snd3 (_, b, _) = b
           trd3 (_, _, c) = c
 
-      runDataflow (\o -> fst3 <$> numJoin o) numbers   `shouldReturn` [sum numbers]
-      runDataflow (\o -> snd3 <$> numJoin o) numbers'  `shouldReturn` [sum numbers]
-      runDataflow (\o -> trd3 <$> numJoin o) numbers'' `shouldReturn` [sum numbers]
+      runDataflow (fmap fst3 . numJoin) numbers   `shouldReturn` [sum numbers]
+      runDataflow (fmap snd3 . numJoin) numbers'  `shouldReturn` [sum numbers]
+      runDataflow (fmap trd3 . numJoin) numbers'' `shouldReturn` [sum numbers]
