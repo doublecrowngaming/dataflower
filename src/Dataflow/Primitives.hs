@@ -2,6 +2,7 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE MultiParamTypeClasses      #-}
 {-# LANGUAGE RecordWildCards            #-}
+{-# LANGUAGE StandaloneDeriving         #-}
 
 module Dataflow.Primitives (
   Dataflow(..),
@@ -26,6 +27,7 @@ module Dataflow.Primitives (
 
 import           Control.Arrow              ((>>>))
 import           Control.Monad              (forM, (>=>))
+import           Control.Monad.Fix          (MonadFix)
 import           Control.Monad.IO.Class     (liftIO)
 import           Control.Monad.State.Strict (StateT, get, gets, modify)
 import           Control.Monad.Trans        (lift)
@@ -68,6 +70,7 @@ instance Incrementable Epoch where
   inc (Epoch n) = Epoch (n + 1)
 
 
+
 data DataflowState = DataflowState {
   dfsVertices       :: Vector Any,
   dfsStates         :: Vector (IORef Any),
@@ -81,7 +84,28 @@ data DataflowState = DataflowState {
 --
 -- @since 0.1.0.0
 newtype Dataflow a = Dataflow { runDataflow :: StateT DataflowState IO a }
-  deriving (Functor, Applicative, Monad)
+
+-- |
+--
+-- @since 0.1.0.0
+deriving instance Functor Dataflow
+
+-- |
+--
+-- @since 0.1.0.0
+deriving instance Applicative Dataflow
+
+-- |
+--
+-- @since 0.1.0.0
+deriving instance Monad Dataflow
+
+-- |
+--
+-- @since 0.4.0.0
+deriving instance MonadFix Dataflow
+
+
 
 initDataflowState :: DataflowState
 initDataflowState = DataflowState {
